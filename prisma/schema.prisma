@@ -1,0 +1,168 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                  String               @id @default(uuid())
+  npk                 String               @unique
+  name                String
+  password            String
+  phone               String
+  role                String               @default("USER") // ADMIN | USER
+  isActive            Boolean              @default(true)
+  joinedAt            DateTime             @default(now())
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  obligations         PaymentObligation[]
+  paymentTransactions PaymentTransaction[]
+  expensesAsMember    ExpenseTransaction[] @relation("MemberExpenses")
+}
+
+model CashPeriod {
+  id                  String               @id @default(uuid())
+  month               Int
+  year                Int
+  title               String
+  cycleStartDay       Int                  @default(25)
+  dueDate             DateTime
+  monthlyAmount       Int                  @default(50000)
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+
+  obligations         PaymentObligation[]
+  paymentTransactions PaymentTransaction[]
+}
+
+model PaymentObligation {
+  id                  String              @id @default(uuid())
+  userId              String
+  cashPeriodId        String
+  amount              Int
+  status              String              @default("BELUM_BAYAR") // BELUM_BAYAR, SUDAH_BAYAR, TERLAMBAT, DIKECUALIKAN
+  dueDate             DateTime
+  paidAt              DateTime?
+  adminId             String?
+  adminName           String?
+  notes               String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cashPeriod          CashPeriod          @relation(fields: [cashPeriodId], references: [id], onDelete: Cascade)
+  paymentTransaction  PaymentTransaction?
+}
+
+model PaymentTransaction {
+  id                  String             @id @default(uuid())
+  obligationId        String             @unique
+  userId              String
+  cashPeriodId        String
+  amount              Int
+  paymentDate         DateTime           @default(now())
+  adminId             String
+  adminName           String
+  createdAt           DateTime           @default(now())
+
+  obligation          PaymentObligation  @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  user                User               @relation(fields: [userId], references: [id])
+  cashPeriod          CashPeriod         @relation(fields: [cashPeriodId], references: [id])
+  incomeTransaction   IncomeTransaction?
+}
+
+model IncomeCategory {
+  id                  String             @id @default(uuid())
+  name                String             @unique
+  createdAt           DateTime           @default(now())
+}
+
+model IncomeTransaction {
+  id                  String              @id @default(uuid())
+  date                DateTime            @default(now())
+  title               String
+  category            String
+  amount              Int
+  notes               String?
+  proofUrl            String?
+  adminId             String
+  adminName           String
+  paymentTransactionId String?            @unique
+  isAutoPayment       Boolean             @default(false)
+  createdAt           DateTime            @default(now())
+
+  paymentTransaction  PaymentTransaction? @relation(fields: [paymentTransactionId], references: [id], onDelete: SetNull)
+}
+
+model BenefitType {
+  id                  String               @id @default(uuid())
+  name                String               @unique
+  description         String?
+  defaultAmount       Int                  @default(500000)
+  isActive            Boolean              @default(true)
+  rules               String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  expenses            ExpenseTransaction[]
+}
+
+model ExpenseTransaction {
+  id                    String            @id @default(uuid())
+  date                  DateTime          @default(now())
+  benefitTypeId         String?
+  benefitTypeName       String?
+  recipientType         String            // MEMBER, FAMILY, EXTERNAL
+  recipientName         String
+  recipientRelationship String?           // Diri Sendiri, Suami/Istri, Anak, Orang Tua, etc.
+  memberId              String?
+  memberName            String?
+  amount                Int
+  notes                 String?
+  proofUrl              String?
+  adminId               String
+  adminName             String
+  createdAt             DateTime          @default(now())
+
+  benefitType           BenefitType?      @relation(fields: [benefitTypeId], references: [id], onDelete: SetNull)
+  member                User?             @relation("MemberExpenses", fields: [memberId], references: [id], onDelete: SetNull)
+}
+
+model NotificationLog {
+  id                  String              @id @default(uuid())
+  recipientNpk        String
+  recipientName       String
+  phoneNumber         String
+  periodTitle         String
+  amount              Int
+  message             String
+  status              String              // SENT, FAILED, SIMULATED
+  sentByAdminId       String
+  sentByAdminName     String
+  sentAt              DateTime            @default(now())
+}
+
+model SystemSetting {
+  id                  String              @id @default(uuid())
+  key                 String              @unique
+  value               String
+  description         String?
+  updatedAt           DateTime            @updatedAt
+}
+
+model AuditLog {
+  id                  String              @id @default(uuid())
+  userId              String
+  npk                 String
+  userName            String
+  role                String
+  activity            String
+  details             String?
+  createdAt           DateTime            @default(now())
+}
