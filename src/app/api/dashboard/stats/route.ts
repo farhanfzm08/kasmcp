@@ -10,36 +10,42 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Cached debounced check (runs only once every 15 min)
     await ensureCurrentPeriodRollover();
-
-    // 1. Total Incomes & Expenses (Calculated atomic sum)
-    const incomeAggregate = await prisma.incomeTransaction.aggregate({
-      _sum: { amount: true },
-    });
-    const totalIncome = incomeAggregate._sum.amount || 0;
-
-    const expenseAggregate = await prisma.expenseTransaction.aggregate({
-      _sum: { amount: true },
-    });
-    const totalExpense = expenseAggregate._sum.amount || 0;
-
-    const currentBalance = totalIncome - totalExpense;
 
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
 
-    // 2. Current Active Period (Current month & year)
-    const currentPeriod = await prisma.cashPeriod.findFirst({
-      where: {
-        isActive: true,
-        OR: [
-          { year: { lt: currentYear } },
-          { year: currentYear, month: { lte: currentMonth } },
-        ],
-      },
-      orderBy: [{ year: 'desc' }, { month: 'desc' }],
-    });
+    // Batch 1: Execute general aggregations and lookups in parallel
+    const [
+      incomeAggregate,
+      expenseAggregate,
+      currentPeriod,
+      activeMembersCount,
+      recentIncomes,
+      recentExpenses,
+    ] = await Promise.all([
+      prisma.incomeTransaction.aggregate({ _sum: { amount: true } }),
+      prisma.expenseTransaction.aggregate({ _sum: { amount: true } }),
+      prisma.cashPeriod.findFirst({
+        where: {
+          isActive: true,
+          OR: [
+            { year: { lt: currentYear } },
+            { year: currentYear, month: { lte: currentMonth } },
+          ],
+        },
+        orderBy: [{ year: 'desc' }, { month: 'desc' }],
+      }),
+      prisma.user.count({ where: { role: 'USER', isActive: true } }),
+      prisma.incomeTransaction.findMany({ take: 5, orderBy: { date: 'desc' } }),
+      prisma.expenseTransaction.findMany({ take: 5, orderBy: { date: 'desc' } }),
+    ]);
+
+    const totalIncome = incomeAggregate._sum.amount || 0;
+    const totalExpense = expenseAggregate._sum.amount || 0;
+    const currentBalance = totalIncome - totalExpense;
 
     let incomeThisMonth = 0;
     let expenseThisMonth = 0;
@@ -49,28 +55,33 @@ export async function GET() {
     let unpaidMembers: any[] = [];
     let progressPercentage = 0;
 
+    // Batch 2: Current period data in parallel
     if (currentPeriod) {
-      // Current month date range
       const firstDay = new Date(currentPeriod.year, currentPeriod.month - 1, 1);
       const lastDay = new Date(currentPeriod.year, currentPeriod.month, 0, 23, 59, 59);
 
-      const monthIncomeAgg = await prisma.incomeTransaction.aggregate({
-        where: { date: { gte: firstDay, lte: lastDay } },
-        _sum: { amount: true },
-      });
+      const [monthIncomeAgg, monthExpenseAgg, obligations, overdueAgg] = await Promise.all([
+        prisma.incomeTransaction.aggregate({
+          where: { date: { gte: firstDay, lte: lastDay } },
+          _sum: { amount: true },
+        }),
+        prisma.expenseTransaction.aggregate({
+          where: { date: { gte: firstDay, lte: lastDay } },
+          _sum: { amount: true },
+        }),
+        prisma.paymentObligation.findMany({
+          where: { cashPeriodId: currentPeriod.id },
+          include: { user: true },
+        }),
+        prisma.paymentObligation.aggregate({
+          where: { status: { in: ['BELUM_BAYAR', 'TERLAMBAT'] } },
+          _sum: { amount: true },
+        }),
+      ]);
+
       incomeThisMonth = monthIncomeAgg._sum.amount || 0;
-
-      const monthExpenseAgg = await prisma.expenseTransaction.aggregate({
-        where: { date: { gte: firstDay, lte: lastDay } },
-        _sum: { amount: true },
-      });
       expenseThisMonth = monthExpenseAgg._sum.amount || 0;
-
-      // Obligations for current period
-      const obligations = await prisma.paymentObligation.findMany({
-        where: { cashPeriodId: currentPeriod.id },
-        include: { user: true },
-      });
+      totalOverdue = overdueAgg._sum.amount || 0;
 
       paidCount = obligations.filter((o) => o.status === 'SUDAH_BAYAR').length;
       unpaidCount = obligations.filter((o) => o.status === 'BELUM_BAYAR' || o.status === 'TERLAMBAT').length;
@@ -79,7 +90,6 @@ export async function GET() {
       const totalCollected = paidCount * currentPeriod.monthlyAmount;
       progressPercentage = totalTarget > 0 ? Math.round((totalCollected / totalTarget) * 100) : 0;
 
-      // Unpaid list
       unpaidMembers = obligations
         .filter((o) => o.status === 'BELUM_BAYAR' || o.status === 'TERLAMBAT')
         .map((o) => ({
@@ -92,31 +102,9 @@ export async function GET() {
           amount: o.amount,
           dueDate: o.dueDate,
         }));
-
-      // Overdue aggregate (all unpaid/terlambat obligations in system)
-      const overdueAgg = await prisma.paymentObligation.aggregate({
-        where: { status: { in: ['BELUM_BAYAR', 'TERLAMBAT'] } },
-        _sum: { amount: true },
-      });
-      totalOverdue = overdueAgg._sum.amount || 0;
     }
 
-    // 3. Active Members Count
-    const activeMembersCount = await prisma.user.count({
-      where: { role: 'USER', isActive: true },
-    });
-
-    // 4. Recent Transactions (Incomes & Expenses combined)
-    const recentIncomes = await prisma.incomeTransaction.findMany({
-      take: 5,
-      orderBy: { date: 'desc' },
-    });
-
-    const recentExpenses = await prisma.expenseTransaction.findMany({
-      take: 5,
-      orderBy: { date: 'desc' },
-    });
-
+    // Merge & format recent transactions
     const recentTransactions = [
       ...recentIncomes.map((i) => ({
         id: `inc-${i.id}`,
@@ -140,32 +128,35 @@ export async function GET() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 7);
 
-    // 5. Monthly breakdown for chart (Last 6 months)
-    const monthsData = [];
+    // Batch 3: Parallel 6-month breakdown chart
+    const monthPromises = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const m = d.getMonth() + 1;
       const y = d.getFullYear();
       const start = new Date(y, m - 1, 1);
       const end = new Date(y, m, 0, 23, 59, 59);
-
-      const mInc = await prisma.incomeTransaction.aggregate({
-        where: { date: { gte: start, lte: end } },
-        _sum: { amount: true },
-      });
-      const mExp = await prisma.expenseTransaction.aggregate({
-        where: { date: { gte: start, lte: end } },
-        _sum: { amount: true },
-      });
-
       const monthName = new Intl.DateTimeFormat('id-ID', { month: 'short' }).format(start);
-      monthsData.push({
-        monthName,
-        year: y,
-        income: mInc._sum.amount || 0,
-        expense: mExp._sum.amount || 0,
-      });
+
+      monthPromises.push(
+        Promise.all([
+          prisma.incomeTransaction.aggregate({
+            where: { date: { gte: start, lte: end } },
+            _sum: { amount: true },
+          }),
+          prisma.expenseTransaction.aggregate({
+            where: { date: { gte: start, lte: end } },
+            _sum: { amount: true },
+          }),
+        ]).then(([mInc, mExp]) => ({
+          monthName,
+          year: y,
+          income: mInc._sum.amount || 0,
+          expense: mExp._sum.amount || 0,
+        }))
+      );
     }
+    const monthsData = await Promise.all(monthPromises);
 
     return NextResponse.json({
       currentBalance,

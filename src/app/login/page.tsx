@@ -29,6 +29,10 @@ export default function LoginPage() {
         throw new Error(data.error || 'Login gagal');
       }
 
+      try {
+        sessionStorage.setItem('kas_user', JSON.stringify(data.user));
+      } catch (e) {}
+
       if (data.user.role === 'ADMIN') {
         router.push('/dashboard');
       } else {

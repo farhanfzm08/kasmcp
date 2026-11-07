@@ -178,7 +178,15 @@ export async function ensureUpcomingPeriods(monthsAhead: number = 0, monthsBack:
   await ensureSpecificPeriod(currentMonth, currentYear);
 }
 
+let lastRolloverCheck = 0;
+const ROLLOVER_INTERVAL = 15 * 60 * 1000; // 15 minutes cache debounce
+
 export async function ensureCurrentPeriodRollover() {
+  const now = Date.now();
+  if (now - lastRolloverCheck < ROLLOVER_INTERVAL) {
+    return;
+  }
+  lastRolloverCheck = now;
   return ensureUpcomingPeriods(0, 5);
 }
 

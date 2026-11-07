@@ -25,8 +25,23 @@ interface AppLayoutProps {
 export default function AppLayout({ children, title }: AppLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('kas_user');
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return !sessionStorage.getItem('kas_user');
+      } catch (e) {}
+    }
+    return true;
+  });
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -35,15 +50,23 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
       .then((data) => {
         if (data.user) {
           setCurrentUser(data.user);
+          try {
+            sessionStorage.setItem('kas_user', JSON.stringify(data.user));
+          } catch (e) {}
         } else {
+          try { sessionStorage.removeItem('kas_user'); } catch (e) {}
           router.push('/login');
         }
       })
-      .catch(() => router.push('/login'))
+      .catch(() => {
+        try { sessionStorage.removeItem('kas_user'); } catch (e) {}
+        router.push('/login');
+      })
       .finally(() => setLoading(false));
   }, [router]);
 
   const handleLogout = async () => {
+    try { sessionStorage.removeItem('kas_user'); } catch (e) {}
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
   };
