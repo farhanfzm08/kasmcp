@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Shield, UserCheck, AlertCircle, ArrowRight, Lock, Key } from 'lucide-react';
+import { Sparkles, AlertCircle, ArrowRight, Lock, UserCheck } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,11 +39,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickLogin = (demoNpk: string, demoPass: string) => {
-    setNpk(demoNpk);
-    setPassword(demoPass);
   };
 
   return (
@@ -87,7 +82,7 @@ export default function LoginPage() {
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: ADMIN01 atau 1001"
+                  placeholder="Masukkan NPK Anda"
                   value={npk}
                   onChange={(e) => setNpk(e.target.value)}
                   className="w-full pl-11 pr-4 py-3 bg-white/80 border border-slate-200 rounded-xl font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
@@ -129,31 +124,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Demo Login Shortcuts */}
-          <div className="mt-8 pt-6 border-t border-slate-200/60 text-center">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-              Akun Demo Cepat
-            </p>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('ADMIN01', 'admin123')}
-                className="py-2.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                Admin (ADMIN01)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('1001', 'user123')}
-                className="py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5"
-              >
-                <UserCheck className="w-3.5 h-3.5" />
-                Anggota (1001)
-              </button>
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-xs text-slate-500 font-medium mt-6">
