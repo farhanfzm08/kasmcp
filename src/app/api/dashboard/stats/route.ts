@@ -18,18 +18,32 @@ export async function GET() {
     const currentYear = now.getFullYear();
 
     // Batch 1: Execute general aggregations and lookups in parallel
+    const startOfYear = new Date(currentYear, 0, 1);
+    const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59);
+
     const [
       incomeAggregate,
       expenseAggregate,
+      yearIncomeAgg,
+      yearExpenseAgg,
       currentPeriod,
       activeMembersCount,
       recentIncomes,
       recentExpenses,
       allUnpaidObligations,
       allBenefitsExpenses,
+      recentBenefitClaims,
     ] = await Promise.all([
       prisma.incomeTransaction.aggregate({ _sum: { amount: true } }),
       prisma.expenseTransaction.aggregate({ _sum: { amount: true } }),
+      prisma.incomeTransaction.aggregate({
+        where: { date: { gte: startOfYear, lte: endOfYear } },
+        _sum: { amount: true },
+      }),
+      prisma.expenseTransaction.aggregate({
+        where: { date: { gte: startOfYear, lte: endOfYear } },
+        _sum: { amount: true },
+      }),
       prisma.cashPeriod.findFirst({
         where: {
           isActive: true,
@@ -60,6 +74,19 @@ export async function GET() {
       prisma.expenseTransaction.findMany({
         where: { benefitTypeId: { not: null } },
         select: { amount: true, benefitTypeName: true },
+      }),
+      prisma.expenseTransaction.findMany({
+        where: { benefitTypeId: { not: null } },
+        take: 4,
+        orderBy: { date: 'desc' },
+        select: {
+          id: true,
+          recipientName: true,
+          benefitTypeName: true,
+          amount: true,
+          date: true,
+          notes: true,
+        },
       }),
     ]);
 
@@ -233,6 +260,21 @@ export async function GET() {
     }
     const monthsData = await Promise.all(monthPromises);
 
+    // Calculate Cash Runway based on average monthly expense
+    const totalRecentExpenses = monthsData.reduce((sum, m) => sum + m.expense, 0);
+    const avgMonthlyExpense = monthsData.length > 0 ? totalRecentExpenses / monthsData.length : 0;
+    const runwayMonths = avgMonthlyExpense > 0 
+      ? Math.round((currentBalance / avgMonthlyExpense) * 10) / 10 
+      : (currentBalance > 0 ? 99 : 0);
+
+    const severeDebtorsCount = Array.from(debtorMap.values()).filter((d) => d.unpaidMonthsCount >= 2).length;
+
+    let daysUntilDue: number | null = null;
+    if (currentPeriod?.dueDate) {
+      const diffMs = new Date(currentPeriod.dueDate).getTime() - now.getTime();
+      daysUntilDue = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    }
+
     return NextResponse.json({
       currentBalance,
       totalIncome,
@@ -251,6 +293,15 @@ export async function GET() {
       monthsData,
       topDebtors,
       totalMembersWithArrears,
+      severeDebtorsCount,
+      daysUntilDue,
+      runwayMonths,
+      recentBenefitClaims,
+      yearStats: {
+        income: yearIncomeAgg._sum.amount || 0,
+        expense: yearExpenseAgg._sum.amount || 0,
+        balanceDiff: (yearIncomeAgg._sum.amount || 0) - (yearExpenseAgg._sum.amount || 0),
+      },
       benefitSummary: {
         totalAmount: totalBenefitAmount,
         totalClaims: totalBenefitClaims,
