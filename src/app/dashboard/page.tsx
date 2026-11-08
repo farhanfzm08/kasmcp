@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/src/components/layout/AppLayout';
-import { formatRupiah, formatDateIndo } from '@/src/lib/format';
+import { formatRupiah, formatDateIndo, formatPhoneDisplay } from '@/src/lib/format';
 import { StatusBadge } from '@/src/components/ui/StatusBadge';
 import Link from 'next/link';
 import {
@@ -12,6 +12,7 @@ import {
   Users,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   MessageSquare,
   CreditCard,
   HeartHandshake,
@@ -19,6 +20,12 @@ import {
   ArrowDownRight,
   Send,
   Loader2,
+  PhoneCall,
+  Calendar,
+  Flame,
+  ShieldCheck,
+  BarChart3,
+  Heart,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -40,9 +47,8 @@ export default function DashboardPage() {
     fetchStats();
   }, []);
 
-  // Requirement 4 & 5: Individual Rapel WhatsApp Reminder
   const handleSendReminder = async (obligationId: string, userId: string, name: string) => {
-    setSendingReminder(obligationId);
+    setSendingReminder(userId || obligationId);
     try {
       const res = await fetch('/api/reminders', {
         method: 'POST',
@@ -63,7 +69,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Requirement 5: Activated Mass WhatsApp Reminder
   const handleBulkReminder = async () => {
     if (!confirm('Kirim pengingat WhatsApp rapel ke SEMUA anggota yang BELUM MEMBAYAR kas?')) return;
     setBulkReminderLoading(true);
@@ -99,6 +104,12 @@ export default function DashboardPage() {
       </AppLayout>
     );
   }
+
+  // Max value for 6-month chart scaling
+  const maxMonthValue = Math.max(
+    ...(stats?.monthsData || []).map((m: any) => Math.max(m.income, m.expense)),
+    100000
+  );
 
   return (
     <AppLayout title="Dashboard Bulanan">
@@ -276,7 +287,6 @@ export default function DashboardPage() {
             </div>
           </Link>
 
-          {/* Moved Mass WhatsApp Reminder Button right next to Catat Santunan */}
           <button
             type="button"
             onClick={handleBulkReminder}
@@ -299,13 +309,265 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Unpaid Members Section */}
+        {/* SECTION 1: TOP 5 ANGGOTA TUNGGAKAN TERBANYAK (RAPEL TERTINGGI) */}
+        <div className="glass-card p-6 rounded-3xl border border-rose-200/60 bg-gradient-to-br from-white via-rose-50/20 to-white shadow-lg shadow-rose-500/5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-md shadow-rose-500/30 shrink-0">
+                <Flame className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-black text-slate-900 font-['Montserrat']">
+                    Top 5 Tunggakan Terbanyak (Rapel Tertinggi)
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px]">
+                    Perlu Follow-up
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                  Akumulasi tunggakan tertinggi di seluruh periode kas yang perlu diprioritaskan untuk penagihan.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-[11px] text-slate-400 font-semibold uppercase">Total Seluruh Tunggakan</p>
+                <p className="text-base font-black text-rose-600 font-['Montserrat']">
+                  {formatRupiah(stats?.totalOverdue || 0)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {!stats?.topDebtors || stats.topDebtors.length === 0 ? (
+            <div className="py-8 text-center bg-emerald-50/60 rounded-2xl border border-emerald-100">
+              <ShieldCheck className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
+              <p className="text-sm font-bold text-emerald-800">Tidak Ada Tunggakan Kas!</p>
+              <p className="text-xs text-emerald-600 mt-1">Semua anggota disiplin dan telah melunasi seluruh kewajiban kas.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-rose-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="py-3 px-4 text-center w-14">Rank</th>
+                    <th className="py-3 px-4">Nama Anggota</th>
+                    <th className="py-3 px-4">Kontak WhatsApp</th>
+                    <th className="py-3 px-4">Bulan Menunggak</th>
+                    <th className="py-3 px-4">Periode Tunggakan</th>
+                    <th className="py-3 px-4 text-right">Total Tagihan</th>
+                    <th className="py-3 px-4 text-right">Aksi Cepat</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-rose-100/60 text-sm font-medium">
+                  {stats.topDebtors.map((d: any, idx: number) => (
+                    <tr key={d.userId} className="hover:bg-rose-50/40 transition-colors">
+                      <td className="py-3.5 px-4 text-center">
+                        <span
+                          className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black ${
+                            idx === 0
+                              ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/30'
+                              : idx === 1
+                              ? 'bg-amber-500 text-white'
+                              : idx === 2
+                              ? 'bg-indigo-500 text-white'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {idx + 1}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-slate-900">{d.name}</div>
+                        <div className="text-xs text-slate-400 font-mono">NPK: {d.npk}</div>
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-xs text-slate-600">
+                        <a
+                          href={`https://wa.me/${d.phone}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="hover:text-emerald-600 hover:underline flex items-center gap-1.5"
+                        >
+                          <PhoneCall className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>{formatPhoneDisplay(d.phone)}</span>
+                        </a>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-100 text-rose-700 font-extrabold text-xs">
+                          {d.unpaidMonthsCount} Bulan
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex flex-wrap gap-1 max-w-xs">
+                          {d.unpaidPeriods?.map((p: string, pIdx: number) => (
+                            <span
+                              key={pIdx}
+                              className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-medium"
+                            >
+                              {p}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="text-base font-black text-rose-600 font-['Montserrat']">
+                          {formatRupiah(d.totalUnpaidAmount)}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          onClick={() => handleSendReminder('', d.userId, d.name)}
+                          disabled={sendingReminder === d.userId}
+                          className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold transition-all shadow-sm shadow-emerald-600/20 inline-flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>{sendingReminder === d.userId ? 'Mengirim...' : 'Kirim WA Rapel'}</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* SECTION 2: DUA KOLOM (GRAFIK TREN KAS & RINGKASAN SANTUNAN) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Kolom 1 (2 span): Grafik Arus Kas 6 Bulan */}
+          <div className="glass-card p-6 rounded-3xl lg:col-span-2">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+                  <BarChart3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 font-['Montserrat']">
+                    Tren Arus Kas (6 Bulan Terakhir)
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">Perbandingan Pemasukan vs Pengeluaran per bulan</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 text-xs font-bold">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
+                  <span className="text-slate-600">Pemasukan</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-rose-500"></span>
+                  <span className="text-slate-600">Pengeluaran</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bar Chart Visualization */}
+            <div className="h-56 flex items-end justify-between gap-3 pt-6 pb-2 px-2 border-b border-slate-100">
+              {stats?.monthsData?.map((m: any, idx: number) => {
+                const incHeight = maxMonthValue > 0 ? Math.max((m.income / maxMonthValue) * 160, 4) : 4;
+                const expHeight = maxMonthValue > 0 ? Math.max((m.expense / maxMonthValue) * 160, 4) : 4;
+
+                return (
+                  <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
+                    <div className="w-full flex items-end justify-center gap-1.5 h-44">
+                      {/* Income Bar */}
+                      <div className="w-full max-w-[20px] flex flex-col items-center">
+                        <div
+                          className="w-full bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-md group-hover:brightness-110 transition-all shadow-xs"
+                          style={{ height: `${incHeight}px` }}
+                          title={`Pemasukan: ${formatRupiah(m.income)}`}
+                        ></div>
+                      </div>
+                      {/* Expense Bar */}
+                      <div className="w-full max-w-[20px] flex flex-col items-center">
+                        <div
+                          className="w-full bg-gradient-to-t from-rose-600 to-rose-400 rounded-t-md group-hover:brightness-110 transition-all shadow-xs"
+                          style={{ height: `${expHeight}px` }}
+                          title={`Pengeluaran: ${formatRupiah(m.expense)}`}
+                        ></div>
+                      </div>
+                    </div>
+                    {/* Month Label */}
+                    <span className="text-[11px] font-bold text-slate-500 group-hover:text-indigo-600 transition-colors uppercase">
+                      {m.monthName}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+              <span>*Tinggi bar menunjukkan perbandingan volume mutasi kas bulanan.</span>
+              <Link href="/reports" className="text-indigo-600 hover:underline font-bold">
+                Buka Detail Laporan →
+              </Link>
+            </div>
+          </div>
+
+          {/* Kolom 2 (1 span): Ringkasan Penyaluran Santunan */}
+          <div className="glass-card p-6 rounded-3xl flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-pink-50 border border-pink-100 text-pink-600 flex items-center justify-center font-bold">
+                  <Heart className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 font-['Montserrat']">
+                    Penyaluran Santunan
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">Realisasi santunan untuk anggota & keluarga</p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 text-white shadow-md shadow-pink-500/20 mb-4">
+                <p className="text-xs font-semibold text-pink-100 uppercase">Total Santunan Tersalurkan</p>
+                <h4 className="text-2xl font-black mt-1 font-['Montserrat']">
+                  {formatRupiah(stats?.benefitSummary?.totalAmount || 0)}
+                </h4>
+                <div className="mt-2 text-xs text-pink-100 font-medium flex items-center justify-between border-t border-white/20 pt-2">
+                  <span>Jumlah Klaim Santunan</span>
+                  <strong className="text-white text-sm">{stats?.benefitSummary?.totalClaims || 0} Kasus</strong>
+                </div>
+              </div>
+
+              {/* Breakdown Santunan List */}
+              <div className="space-y-2.5">
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Rincian Per Kategori:</p>
+                {!stats?.benefitSummary?.breakdown || stats.benefitSummary.breakdown.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">Belum ada pengeluaran santunan tercatat.</p>
+                ) : (
+                  stats.benefitSummary.breakdown.map((item: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between text-xs p-2 rounded-xl bg-slate-50/70 border border-slate-100">
+                      <div>
+                        <p className="font-bold text-slate-800">{item.name}</p>
+                        <p className="text-[10px] text-slate-500 font-medium">{item.count} penerima manfaat</p>
+                      </div>
+                      <span className="font-extrabold text-slate-900">{formatRupiah(item.total)}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 mt-4">
+              <Link
+                href="/expenses"
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold text-center block transition-colors"
+              >
+                + Catat Santunan Baru
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 3: ANGGOTA BELUM BAYAR PERIODE BERJALAN */}
         <div className="glass-card p-6 rounded-3xl">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
               <h3 className="text-lg font-bold text-slate-900 font-['Montserrat'] flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-amber-500" />
-                <span>Anggota Belum Bayar ({stats?.unpaidMembers?.length || 0})</span>
+                <span>Anggota Belum Bayar Periode Berjalan ({stats?.unpaidMembers?.length || 0})</span>
               </h3>
               <p className="text-xs text-slate-500 mt-1 font-medium">
                 Daftar anggota yang belum melunasi kewajiban kas untuk periode {stats?.currentPeriod}.
@@ -335,7 +597,7 @@ export default function DashboardPage() {
                     <th className="py-3 px-4">Jatuh Tempo</th>
                     <th className="py-3 px-4">Nominal</th>
                     <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4 text-right">Aksi Quick Reminder Rapel</th>
+                    <th className="py-3 px-4 text-right">Aksi Quick Reminder</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm font-medium">
@@ -354,11 +616,11 @@ export default function DashboardPage() {
                       <td className="py-3.5 px-4 text-right">
                         <button
                           onClick={() => handleSendReminder(m.obligationId, m.userId, m.name)}
-                          disabled={sendingReminder === m.obligationId}
+                          disabled={sendingReminder === (m.userId || m.obligationId)}
                           className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-200 transition-colors inline-flex items-center gap-1.5 disabled:opacity-50"
                         >
                           <Send className="w-3.5 h-3.5 text-emerald-600" />
-                          {sendingReminder === m.obligationId ? 'Mengirim...' : 'Kirim WA Rapel'}
+                          {sendingReminder === (m.userId || m.obligationId) ? 'Mengirim...' : 'Kirim WA'}
                         </button>
                       </td>
                     </tr>
@@ -369,7 +631,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Recent Financial Transactions Section */}
+        {/* SECTION 4: TRANSAKSI KEUANGAN TERBARU */}
         <div className="glass-card p-6 rounded-3xl">
           <div className="flex items-center justify-between mb-6">
             <div>
