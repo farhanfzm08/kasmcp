@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/src/lib/prisma';
 import { getAuthSession } from '@/src/lib/auth';
-import { ensureCurrentPeriodRollover } from '@/src/lib/cash-service';
+import {
+  ensureCurrentPeriodRollover,
+  getPeriodForDate,
+  getPeriodDateRange,
+  formatPeriodLabel,
+} from '@/src/lib/cash-service';
 
 export async function GET() {
   try {
@@ -14,8 +19,7 @@ export async function GET() {
     await ensureCurrentPeriodRollover();
 
     const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
+    const { month: currentMonth, year: currentYear } = getPeriodForDate(now);
 
     // Batch 1: Execute general aggregations and lookups in parallel
     const startOfYear = new Date(currentYear, 0, 1);
@@ -46,13 +50,9 @@ export async function GET() {
       }),
       prisma.cashPeriod.findFirst({
         where: {
-          isActive: true,
-          OR: [
-            { year: { lt: currentYear } },
-            { year: currentYear, month: { lte: currentMonth } },
-          ],
+          month: currentMonth,
+          year: currentYear,
         },
-        orderBy: [{ year: 'desc' }, { month: 'desc' }],
       }),
       prisma.user.count({ where: { role: 'USER', isActive: true } }),
       prisma.incomeTransaction.findMany({ take: 5, orderBy: { date: 'desc' } }),
@@ -102,18 +102,17 @@ export async function GET() {
     let unpaidMembers: any[] = [];
     let progressPercentage = 0;
 
-    // Batch 2: Current period data in parallel
+    // Batch 2: Current period data in parallel (following 25th - 24th period rule)
     if (currentPeriod) {
-      const firstDay = new Date(currentPeriod.year, currentPeriod.month - 1, 1);
-      const lastDay = new Date(currentPeriod.year, currentPeriod.month, 0, 23, 59, 59);
+      const { startDate: periodStart, endDate: periodEnd } = getPeriodDateRange(currentPeriod.month, currentPeriod.year);
 
       const [monthIncomeAgg, monthExpenseAgg, obligations, overdueAgg] = await Promise.all([
         prisma.incomeTransaction.aggregate({
-          where: { date: { gte: firstDay, lte: lastDay } },
+          where: { date: { gte: periodStart, lte: periodEnd } },
           _sum: { amount: true },
         }),
         prisma.expenseTransaction.aggregate({
-          where: { date: { gte: firstDay, lte: lastDay } },
+          where: { date: { gte: periodStart, lte: periodEnd } },
           _sum: { amount: true },
         }),
         prisma.paymentObligation.findMany({
@@ -230,28 +229,31 @@ export async function GET() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 7);
 
-    // Batch 3: Parallel 6-month breakdown chart
+    // Batch 3: Parallel 6-period breakdown chart (25th to 24th cycles)
     const monthPromises = [];
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const m = d.getMonth() + 1;
-      const y = d.getFullYear();
-      const start = new Date(y, m - 1, 1);
-      const end = new Date(y, m, 0, 23, 59, 59);
-      const monthName = new Intl.DateTimeFormat('id-ID', { month: 'short' }).format(start);
+      let m = currentMonth - i;
+      let y = currentYear;
+      while (m < 1) {
+        m += 12;
+        y -= 1;
+      }
+      const { startDate, endDate } = getPeriodDateRange(m, y);
+      const monthName = new Intl.DateTimeFormat('id-ID', { month: 'short' }).format(new Date(y, m - 1, 1));
 
       monthPromises.push(
         Promise.all([
           prisma.incomeTransaction.aggregate({
-            where: { date: { gte: start, lte: end } },
+            where: { date: { gte: startDate, lte: endDate } },
             _sum: { amount: true },
           }),
           prisma.expenseTransaction.aggregate({
-            where: { date: { gte: start, lte: end } },
+            where: { date: { gte: startDate, lte: endDate } },
             _sum: { amount: true },
           }),
         ]).then(([mInc, mExp]) => ({
           monthName,
+          month: m,
           year: y,
           income: mInc._sum.amount || 0,
           expense: mExp._sum.amount || 0,
@@ -286,7 +288,7 @@ export async function GET() {
       unpaidCount,
       totalOverdue,
       progressPercentage,
-      currentPeriod: currentPeriod ? currentPeriod.title.replace('Kas Sosial ', '') : 'Belum Ada Periode',
+      currentPeriod: currentPeriod ? formatPeriodLabel(currentPeriod.month, currentPeriod.year) : 'Belum Ada Periode',
       periodDetails: currentPeriod,
       unpaidMembers,
       recentTransactions,

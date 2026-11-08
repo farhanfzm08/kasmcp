@@ -1,5 +1,71 @@
 import { prisma } from './prisma';
 
+/**
+ * Helper to determine which cash period a given date belongs to:
+ * Rule: 25th of month M to 24th of month M+1 belongs to Period M.
+ * Examples:
+ * - 25 Agustus - 24 September => Periode Agustus
+ * - 23 Juli => Periode Juni (karena masih sebelum tgl 25 Juli)
+ */
+export function getPeriodForDate(date: Date = new Date()): { month: number; year: number } {
+  const day = date.getDate();
+  let month = date.getMonth() + 1; // 1 - 12
+  let year = date.getFullYear();
+
+  if (day < 25) {
+    month -= 1;
+    if (month < 1) {
+      month = 12;
+      year -= 1;
+    }
+  }
+
+  return { month, year };
+}
+
+/**
+ * Returns the exact start and end timestamps for a period (month, year):
+ * - Start: 25th of month, 00:00:00.000
+ * - End: 24th of month + 1, 23:59:59.999
+ */
+export function getPeriodDateRange(month: number, year: number): { startDate: Date; endDate: Date } {
+  const startDate = new Date(year, month - 1, 25, 0, 0, 0, 0);
+  let endMonth = month + 1;
+  let endYear = year;
+  if (endMonth > 12) {
+    endMonth = 1;
+    endYear += 1;
+  }
+  const endDate = new Date(endYear, endMonth - 1, 24, 23, 59, 59, 999);
+  return { startDate, endDate };
+}
+
+/**
+ * Formats a clean human-readable label with date range info:
+ * E.g. "Agustus 2026 (25 Agt - 24 Sep)"
+ */
+export function formatPeriodLabel(month: number, year: number): string {
+  const monthsShort = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+    'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des',
+  ];
+  const monthsFull = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+  ];
+
+  let nextMonth = month + 1;
+  let nextYear = year;
+  if (nextMonth > 12) {
+    nextMonth = 1;
+    nextYear += 1;
+  }
+
+  const startLabel = `25 ${monthsShort[month - 1]}`;
+  const endLabel = `24 ${monthsShort[nextMonth - 1]}`;
+  return `${monthsFull[month - 1]} ${year} (${startLabel} - ${endLabel})`;
+}
+
 export async function ensureSpecificPeriod(targetMonth: number, targetYear: number) {
   try {
     // Single source of truth for monthly cash fee & cycle dates
@@ -16,7 +82,7 @@ export async function ensureSpecificPeriod(targetMonth: number, targetYear: numb
 
     const defaultAmount = Number(settingsMap['DEFAULT_MONTHLY_AMOUNT'] || 50000);
     const cycleStartDay = Number(settingsMap['CYCLE_START_DAY'] || 25);
-    const dueDateDay = Number(settingsMap['DUE_DATE_DAY'] || 15);
+    const dueDateDay = Number(settingsMap['DUE_DATE_DAY'] || 24);
 
     const monthsIndo = [
       'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -25,7 +91,7 @@ export async function ensureSpecificPeriod(targetMonth: number, targetYear: numb
 
     // For Kas [targetMonth] [targetYear]:
     // Billing start: 25 [targetMonth] [targetYear]
-    // Due Date: 15 [targetMonth + 1] [targetYear]
+    // End date / Jatuh tempo: 24 (or dueDateDay) [targetMonth + 1] [targetYear]
     let dueMonth = targetMonth + 1;
     let dueYear = targetYear;
     if (dueMonth > 12) {
@@ -58,7 +124,7 @@ export async function ensureSpecificPeriod(targetMonth: number, targetYear: numb
           userName: 'Auto-Period Engine',
           role: 'ADMIN',
           activity: 'Generate Periode Kas Otomatis',
-          details: `Sistem mengaktifkan siklus kas ${period.title} (Awal: ${cycleStartDay} ${monthsIndo[targetMonth - 1]} ${targetYear}, Jatuh Tempo: ${dueDateDay} ${monthsIndo[dueMonth - 1]} ${dueYear}).`,
+          details: `Sistem mengaktifkan siklus kas ${period.title} (Siklus: 25 ${monthsIndo[targetMonth - 1]} ${targetYear} s/d 24 ${monthsIndo[dueMonth - 1]} ${dueYear}).`,
         },
       });
     } else {
@@ -138,10 +204,9 @@ export async function ensureSpecificPeriod(targetMonth: number, targetYear: numb
 
 export async function ensureUpcomingPeriods(monthsAhead: number = 0, monthsBack: number = 5) {
   const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
+  const { month: currentMonth, year: currentYear } = getPeriodForDate(now);
 
-  // Clean up any future periods automatically created beyond the current month/year
+  // Clean up any future periods automatically created beyond the current active period
   const futurePeriods = await prisma.cashPeriod.findMany({
     where: {
       OR: [
@@ -161,7 +226,7 @@ export async function ensureUpcomingPeriods(monthsAhead: number = 0, monthsBack:
     });
   }
 
-  // Generate past 5 months automatically
+  // Generate past months automatically based on 25-24 rule
   for (let i = monthsBack; i >= 1; i--) {
     let targetMonth = currentMonth - i;
     let targetYear = currentYear;
@@ -174,7 +239,7 @@ export async function ensureUpcomingPeriods(monthsAhead: number = 0, monthsBack:
     await ensureSpecificPeriod(targetMonth, targetYear);
   }
 
-  // Generate current month automatically
+  // Generate current period automatically
   await ensureSpecificPeriod(currentMonth, currentYear);
 }
 
@@ -189,8 +254,7 @@ export async function ensureCurrentPeriodRollover() {
   lastRolloverCheck = nowTime;
 
   const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
+  const { month: currentMonth, year: currentYear } = getPeriodForDate(now);
 
   // Fast check: if current period already exists, do nothing!
   const currentPeriod = await prisma.cashPeriod.findFirst({
@@ -202,7 +266,6 @@ export async function ensureCurrentPeriodRollover() {
     return;
   }
 
-  // Only if current period doesn't exist yet, generate current month
+  // Only if current period doesn't exist yet, generate it
   await ensureSpecificPeriod(currentMonth, currentYear);
 }
-

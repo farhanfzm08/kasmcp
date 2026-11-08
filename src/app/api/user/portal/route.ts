@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/src/lib/prisma';
 import { requireAuthSession } from '@/src/lib/auth';
-import { ensureUpcomingPeriods } from '@/src/lib/cash-service';
+import { ensureUpcomingPeriods, getPeriodForDate } from '@/src/lib/cash-service';
 
 export async function GET() {
   try {
     const session = await requireAuthSession();
 
-    // Ensure periods exist up to current month only
+    // Ensure periods exist up to current active period
     await ensureUpcomingPeriods(0, 5);
 
     // 1. Member profile
@@ -29,10 +29,9 @@ export async function GET() {
     }
 
     const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
+    const { month: currentMonth, year: currentYear } = getPeriodForDate(now);
 
-    // 2. Fetch ALL obligations for member (Past & Current Month ONLY, no future months until the 1st of that month!)
+    // 2. Fetch ALL obligations for member (Past & Current Period ONLY, cut-off on 25th)
     const allUserObligations = await prisma.paymentObligation.findMany({
       where: { userId: user.id },
       include: {
@@ -45,7 +44,7 @@ export async function GET() {
       ],
     });
 
-    // Strictly filter out future periods (September 2026 will only appear starting Sept 1st)
+    // Strictly filter out future periods (e.g. Juli 2026 will only appear starting 25 Juli)
     const obligations = allUserObligations.filter((o) => {
       const pYear = o.cashPeriod.year;
       const pMonth = o.cashPeriod.month;

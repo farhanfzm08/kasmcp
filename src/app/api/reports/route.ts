@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/src/lib/prisma';
 import { getAuthSession } from '@/src/lib/auth';
+import { getPeriodDateRange, formatPeriodLabel } from '@/src/lib/cash-service';
 
 export async function GET(request: Request) {
   try {
@@ -18,20 +19,25 @@ export async function GET(request: Request) {
 
     let startDate: Date;
     let endDate: Date;
+    let periodRangeText = '';
 
     if (startDateParam && endDateParam) {
       startDate = new Date(startDateParam);
       endDate = new Date(endDateParam);
       endDate.setHours(23, 59, 59, 999);
+      periodRangeText = `${startDateParam} s/d ${endDateParam}`;
     } else if (month && year) {
       const m = Number(month);
       const y = Number(year);
-      startDate = new Date(y, m - 1, 1);
-      endDate = new Date(y, m, 0, 23, 59, 59);
+      const range = getPeriodDateRange(m, y);
+      startDate = range.startDate;
+      endDate = range.endDate;
+      periodRangeText = formatPeriodLabel(m, y);
     } else {
       const y = Number(year);
       startDate = new Date(y, 0, 1);
       endDate = new Date(y, 11, 31, 23, 59, 59);
+      periodRangeText = `Tahun ${y}`;
     }
 
     // 1. Calculate Saldo Awal (all incomes minus expenses BEFORE startDate)
@@ -97,6 +103,7 @@ export async function GET(request: Request) {
       dateRange: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
+        periodRangeText,
       },
       summary: {
         saldoAwal,

@@ -18,8 +18,22 @@ import {
 
 export default function ReportsPage() {
   const [reportType, setReportType] = useState('KAS_UTAMA');
-  const [month, setMonth] = useState(String(new Date().getMonth() + 1));
-  const [year, setYear] = useState(String(new Date().getFullYear()));
+  
+  // Default to running period according to 25th - 24th cutoff rule
+  const now = new Date();
+  const day = now.getDate();
+  let initMonth = now.getMonth() + 1;
+  let initYear = now.getFullYear();
+  if (day < 25) {
+    initMonth -= 1;
+    if (initMonth < 1) {
+      initMonth = 12;
+      initYear -= 1;
+    }
+  }
+
+  const [month, setMonth] = useState(String(initMonth));
+  const [year, setYear] = useState(String(initYear));
   const [reportData, setReportData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -130,11 +144,15 @@ export default function ReportsPage() {
               {[
                 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
                 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-              ].map((mName, idx) => (
-                <option key={idx} value={String(idx + 1)}>
-                  {mName}
-                </option>
-              ))}
+              ].map((mName, idx) => {
+                const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+                const nextIdx = (idx + 1) % 12;
+                return (
+                  <option key={idx} value={String(idx + 1)}>
+                    {mName} (25 {monthsShort[idx]} - 24 {monthsShort[nextIdx]})
+                  </option>
+                );
+              })}
             </select>
 
             <select

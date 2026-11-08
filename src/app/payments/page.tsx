@@ -65,8 +65,18 @@ export default function PaymentsPage() {
         const fetchedPeriods = data.periods || [];
         setPeriods(fetchedPeriods);
         const now = new Date();
+        const day = now.getDate();
+        let targetMonth = now.getMonth() + 1;
+        let targetYear = now.getFullYear();
+        if (day < 25) {
+          targetMonth -= 1;
+          if (targetMonth < 1) {
+            targetMonth = 12;
+            targetYear -= 1;
+          }
+        }
         const current = fetchedPeriods.find(
-          (p: any) => p.month === now.getMonth() + 1 && p.year === now.getFullYear()
+          (p: any) => p.month === targetMonth && p.year === targetYear
         );
         setSelectedPeriodId(current ? current.id : (fetchedPeriods[0]?.id || ''));
         setPeriodsLoaded(true);
@@ -331,11 +341,18 @@ export default function PaymentsPage() {
                   className="bg-transparent border-none outline-none text-xs font-bold text-slate-800 cursor-pointer pr-2"
                 >
                   <option value="ALL">Semua Periode</option>
-                  {periods.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title ? p.title.replace('Kas Sosial ', '') : ''}
-                    </option>
-                  ))}
+                  {periods.map((p) => {
+                    const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+                    let nextM = p.month + 1;
+                    if (nextM > 12) nextM = 1;
+                    const cleanTitle = p.title ? p.title.replace('Kas Sosial ', '') : '';
+                    const rangeInfo = p.month ? `(25 ${monthsShort[p.month - 1]} - 24 ${monthsShort[nextM - 1]})` : '';
+                    return (
+                      <option key={p.id} value={p.id}>
+                        {cleanTitle} {rangeInfo}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>
