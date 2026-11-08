@@ -11,6 +11,8 @@ export interface AuthSession {
 
 export const SESSION_COOKIE_NAME = 'kas_session';
 
+const sessionUserCache = new Map<string, { user: AuthSession; expiry: number }>();
+
 export async function getAuthSession(): Promise<AuthSession | null> {
   try {
     const cookieStore = await cookies();
@@ -20,21 +22,34 @@ export async function getAuthSession(): Promise<AuthSession | null> {
     const parsedData = JSON.parse(sessionCookie.value) as AuthSession;
     if (!parsedData || !parsedData.id) return null;
 
+    const cacheKey = parsedData.id;
+    const now = Date.now();
+    const cached = sessionUserCache.get(cacheKey);
+    if (cached && cached.expiry > now) {
+      return cached.user;
+    }
+
     // Verify user exists and is active
     const user = await prisma.user.findUnique({
       where: { id: parsedData.id },
       select: { id: true, npk: true, name: true, role: true, phone: true, isActive: true },
     });
 
-    if (!user || !user.isActive) return null;
+    if (!user || !user.isActive) {
+      sessionUserCache.delete(cacheKey);
+      return null;
+    }
 
-    return {
+    const sessionUser: AuthSession = {
       id: user.id,
       npk: user.npk,
       name: user.name,
       role: user.role,
       phone: user.phone,
     };
+
+    sessionUserCache.set(cacheKey, { user: sessionUser, expiry: now + 60000 });
+    return sessionUser;
   } catch (error) {
     return null;
   }

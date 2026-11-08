@@ -182,11 +182,27 @@ let lastRolloverCheck = 0;
 const ROLLOVER_INTERVAL = 15 * 60 * 1000; // 15 minutes cache debounce
 
 export async function ensureCurrentPeriodRollover() {
-  const now = Date.now();
-  if (now - lastRolloverCheck < ROLLOVER_INTERVAL) {
+  const nowTime = Date.now();
+  if (nowTime - lastRolloverCheck < ROLLOVER_INTERVAL) {
     return;
   }
-  lastRolloverCheck = now;
-  return ensureUpcomingPeriods(0, 5);
+  lastRolloverCheck = nowTime;
+
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  // Fast check: if current period already exists, do nothing!
+  const currentPeriod = await prisma.cashPeriod.findFirst({
+    where: { month: currentMonth, year: currentYear },
+    select: { id: true },
+  });
+
+  if (currentPeriod) {
+    return;
+  }
+
+  // Only if current period doesn't exist yet, generate current month
+  await ensureSpecificPeriod(currentMonth, currentYear);
 }
 
