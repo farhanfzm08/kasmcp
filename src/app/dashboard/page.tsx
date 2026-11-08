@@ -30,6 +30,11 @@ import {
   Sparkles,
   ChevronRight,
   Clock,
+  Share2,
+  Copy,
+  Check,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -47,12 +52,33 @@ export default function DashboardPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [alertDismissed, setAlertDismissed] = useState(false);
 
+  // WA Summary Modal
+  const [showWaSummaryModal, setShowWaSummaryModal] = useState(false);
+  const [copiedWaText, setCopiedWaText] = useState(false);
+
+  // Claims Approval Modal
+  const [showClaimsModal, setShowClaimsModal] = useState(false);
+  const [pendingClaims, setPendingClaims] = useState<any[]>([]);
+  const [loadingClaims, setLoadingClaims] = useState(false);
+  const [processingClaimId, setProcessingClaimId] = useState<string | null>(null);
+  const [rejectionInputId, setRejectionInputId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+
   const fetchStats = () => {
     fetch('/api/dashboard/stats')
       .then((res) => res.json())
       .then((data) => setStats(data))
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
+  };
+
+  const fetchPendingClaims = () => {
+    setLoadingClaims(true);
+    fetch('/api/claims?status=PENDING')
+      .then((res) => res.json())
+      .then((data) => setPendingClaims(data.claims || []))
+      .catch((err) => console.error(err))
+      .finally(() => setLoadingClaims(false));
   };
 
   useEffect(() => {
@@ -131,6 +157,73 @@ export default function DashboardPage() {
     }
   };
 
+  // Generate Clean WhatsApp Summary Text
+  const generateWaSummaryText = () => {
+    const period = stats?.currentPeriod || 'Periode Berjalan';
+    const balance = formatRupiah(stats?.currentBalance || 0);
+    const income = formatRupiah(stats?.incomeThisMonth || 0);
+    const expense = formatRupiah(stats?.expenseThisMonth || 0);
+    const paid = stats?.paidCount || 0;
+    const unpaid = stats?.unpaidCount || 0;
+    const total = paid + unpaid;
+    const pct = stats?.progressPercentage || 0;
+    const benefitTotal = formatRupiah(stats?.benefitSummary?.totalAmount || 0);
+    const benefitClaims = stats?.benefitSummary?.totalClaims || 0;
+
+    return (
+      `📢 *LAPORAN REKAP KAS SOSIAL MEASURING CENTER*\n` +
+      `📅 *Periode:* ${period}\n` +
+      `----------------------------------------\n` +
+      `💰 *Total Saldo Kas:* ${balance}\n` +
+      `📈 *Pemasukan Kas Periode Ini:* ${income}\n` +
+      `📉 *Pengeluaran & Santunan:* ${expense}\n` +
+      `📊 *Kepatuhan Iuran:* ${paid}/${total} Anggota (${pct}% Lunas)\n` +
+      `🤝 *Santunan Disalurkan:* ${benefitTotal} (${benefitClaims} Kasus)\n` +
+      `----------------------------------------\n` +
+      `⚠️ *Catatan:* Siklus periode kas berjalan tgl 25 s/d cut-off tgl 24.\n` +
+      `Terima kasih atas partisipasi dan kepedulian seluruh rekan-rekan anggota.\n\n` +
+      `_Pengurus Kas Sosial Measuring Center_`
+    );
+  };
+
+  const handleCopyWaText = () => {
+    const text = generateWaSummaryText();
+    navigator.clipboard.writeText(text);
+    setCopiedWaText(true);
+    showToast('Teks rekap WhatsApp berhasil disalin ke clipboard!');
+    setTimeout(() => setCopiedWaText(false), 3000);
+  };
+
+  // Claim Approvals
+  const handleProcessClaim = async (claimId: string, action: 'APPROVE' | 'REJECT', reason?: string) => {
+    setProcessingClaimId(claimId);
+    try {
+      const res = await fetch(`/api/claims/${claimId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, rejectionReason: reason }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(
+          action === 'APPROVE'
+            ? 'Klaim disetujui & dicairkan ke kas keluar!'
+            : 'Klaim santunan ditolak.'
+        );
+        fetchPendingClaims();
+        fetchStats();
+        setRejectionInputId(null);
+        setRejectionReason('');
+      } else {
+        alert(data.error || 'Gagal memproses klaim');
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan saat memproses klaim');
+    } finally {
+      setProcessingClaimId(null);
+    }
+  };
+
   if (loading) {
     return (
       <AppLayout title="Dashboard">
@@ -185,7 +278,7 @@ export default function DashboardPage() {
                 {periodLabel}
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">Overview keuangan & kewajiban kas anggota</p>
+            <p className="text-xs text-slate-400 mt-0.5">Siklus cut-off kas: 25 ke 24 setiap bulannya</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -222,6 +315,15 @@ export default function DashboardPage() {
               <span>+ Terima Bayar</span>
             </button>
 
+            {/* FITUR 1: 1-Klik Salin Rekap WA */}
+            <button
+              onClick={() => setShowWaSummaryModal(true)}
+              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-sm shadow-emerald-600/20 transition-all cursor-pointer"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Rekap WA</span>
+            </button>
+
             <Link
               href="/expenses"
               className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold inline-flex items-center gap-1.5 transition-all"
@@ -253,6 +355,34 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* PENDING BENEFIT CLAIMS ALERT BANNER */}
+        {stats?.pendingClaimsCount > 0 && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200 text-rose-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Heart className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-extrabold text-sm text-rose-900">
+                  {stats.pendingClaimsCount} Pengajuan Santunan Mandiri Menunggu Persetujuan
+                </p>
+                <p className="text-[11px] text-rose-700 mt-0.5">
+                  Anggota telah mengajukan santunan sosial dari portal mandiri dan memerlukan verifikasi Anda.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                fetchPendingClaims();
+                setShowClaimsModal(true);
+              }}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-xs transition-all shrink-0 cursor-pointer"
+            >
+              Review & Cairkan
+            </button>
+          </div>
+        )}
+
         {/* SMART ALERT BANNER (Only shows when needed) */}
         {!alertDismissed && (stats?.severeDebtorsCount > 0 || (stats?.daysUntilDue !== null && stats?.daysUntilDue <= 5)) && (
           <div className="p-3.5 px-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-amber-900 flex items-center justify-between gap-3 text-xs animate-in fade-in">
@@ -266,7 +396,7 @@ export default function DashboardPage() {
                 )}
                 {stats?.daysUntilDue !== null && stats.daysUntilDue <= 5 && (
                   <span>
-                    Jatuh tempo kas {stats.daysUntilDue < 0 ? 'lewat ' + Math.abs(stats.daysUntilDue) + ' hari' : `dalam ${stats.daysUntilDue} hari`}.
+                    Cut-off kas (tgl 24) {stats.daysUntilDue < 0 ? 'lewat ' + Math.abs(stats.daysUntilDue) + ' hari' : `dalam ${stats.daysUntilDue} hari`}.
                   </span>
                 )}
                 <span className="text-amber-700/80 font-normal">
@@ -276,7 +406,7 @@ export default function DashboardPage() {
             </div>
             <button
               onClick={() => setAlertDismissed(true)}
-              className="text-amber-600 hover:text-amber-900 font-bold text-[11px] shrink-0"
+              className="text-amber-600 hover:text-amber-900 font-bold text-[11px] shrink-0 cursor-pointer"
             >
               Tutup
             </button>
@@ -336,7 +466,7 @@ export default function DashboardPage() {
           <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Pemasukan ({isYearView ? 'YTD' : 'Bulan Ini'})
+                Pemasukan ({isYearView ? 'YTD' : 'Periode Ini'})
               </span>
               <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center">
                 <ArrowUpRight className="w-3.5 h-3.5" />
@@ -355,7 +485,7 @@ export default function DashboardPage() {
           <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Pengeluaran ({isYearView ? 'YTD' : 'Bulan Ini'})
+                Pengeluaran ({isYearView ? 'YTD' : 'Periode Ini'})
               </span>
               <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
                 <ArrowDownRight className="w-3.5 h-3.5" />
@@ -378,7 +508,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-indigo-600" />
-                <h3 className="text-sm font-bold text-slate-900 font-['Montserrat']">Arus Kas 6 Bulan</h3>
+                <h3 className="text-sm font-bold text-slate-900 font-['Montserrat']">Arus Kas (Siklus 25–24)</h3>
               </div>
               <div className="flex items-center gap-3 text-xs font-semibold">
                 <span className="flex items-center gap-1.5 text-slate-600">
@@ -479,13 +609,21 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="pt-4 mt-4 border-t border-slate-100">
+            <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
+              <button
+                onClick={() => {
+                  fetchPendingClaims();
+                  setShowClaimsModal(true);
+                }}
+                className="text-[11px] font-bold text-rose-600 hover:text-rose-800 inline-flex items-center gap-1 cursor-pointer"
+              >
+                Kelola Klaim Masuk ({stats?.pendingClaimsCount || 0}) <ChevronRight className="w-3.5 h-3.5" />
+              </button>
               <Link
                 href="/benefit-settings"
-                className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center justify-between"
+                className="text-[11px] font-bold text-slate-400 hover:text-slate-700"
               >
-                <span>Kelola Plafon & Jenis Santunan</span>
-                <ChevronRight className="w-3.5 h-3.5" />
+                Plafon
               </Link>
             </div>
           </div>
@@ -595,18 +733,18 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setActiveBottomTab('UNPAID')}
-                className={`pb-2 text-xs font-bold transition-all relative ${
+                className={`pb-2 text-xs font-bold transition-all relative cursor-pointer ${
                   activeBottomTab === 'UNPAID'
                     ? 'text-indigo-600 after:absolute after:bottom-[-13px] after:left-0 after:right-0 after:h-0.5 after:bg-indigo-600'
                     : 'text-slate-400 hover:text-slate-700'
                 }`}
               >
-                Belum Bayar Bulan Ini ({stats?.unpaidMembers?.length || 0})
+                Belum Bayar Periode Ini ({stats?.unpaidMembers?.length || 0})
               </button>
               <span className="text-slate-200">|</span>
               <button
                 onClick={() => setActiveBottomTab('TRANSACTIONS')}
-                className={`pb-2 text-xs font-bold transition-all relative ${
+                className={`pb-2 text-xs font-bold transition-all relative cursor-pointer ${
                   activeBottomTab === 'TRANSACTIONS'
                     ? 'text-indigo-600 after:absolute after:bottom-[-13px] after:left-0 after:right-0 after:h-0.5 after:bg-indigo-600'
                     : 'text-slate-400 hover:text-slate-700'
@@ -740,7 +878,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* QUICK PAY MODAL */}
+        {/* MODAL 1: QUICK PAY MODAL */}
         {showQuickPayModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
@@ -753,7 +891,7 @@ export default function DashboardPage() {
                 </div>
                 <button
                   onClick={() => setShowQuickPayModal(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -808,7 +946,221 @@ export default function DashboardPage() {
               <div className="pt-2 border-t border-slate-100 flex justify-end">
                 <button
                   onClick={() => setShowQuickPayModal(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 2: 1-KLIK SALIN REKAP WA MODAL */}
+        {showWaSummaryModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                    <Share2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 font-['Montserrat']">
+                      Rekap Kas untuk Grup WhatsApp
+                    </h3>
+                    <p className="text-[10px] text-slate-400">Format pesan otomatis siap kirim ke grup</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowWaSummaryModal(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Text Preview Box */}
+              <div className="relative">
+                <pre className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] font-mono text-slate-800 whitespace-pre-wrap max-h-72 overflow-y-auto leading-relaxed">
+                  {generateWaSummaryText()}
+                </pre>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-2">
+                <button
+                  onClick={handleCopyWaText}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  {copiedWaText ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedWaText ? 'Tersalin ke Clipboard!' : 'Salin Teks Rekap'}</span>
+                </button>
+
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(generateWaSummaryText())}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-all shadow-sm shadow-emerald-600/20 cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Buka WhatsApp</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 3: REVIEW & VERIFIKASI KLAIM SANTUNAN */}
+        {showClaimsModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white rounded-3xl w-full max-w-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                    <Heart className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 font-['Montserrat']">
+                      Verifikasi Pengajuan Santunan Masuk
+                    </h3>
+                    <p className="text-[10px] text-slate-400">Persetujuan pencairan dana santunan sosial anggota</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowClaimsModal(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Claims List Body */}
+              <div className="overflow-y-auto space-y-3 flex-1 pr-1">
+                {loadingClaims ? (
+                  <div className="py-12 text-center text-xs text-slate-400">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-600" />
+                    Memuat daftar pengajuan santunan...
+                  </div>
+                ) : pendingClaims.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-slate-400 italic">
+                    Tidak ada pengajuan santunan yang menunggu persetujuan saat ini.
+                  </div>
+                ) : (
+                  pendingClaims.map((claim) => (
+                    <div
+                      key={claim.id}
+                      className="p-4 rounded-2xl border border-slate-100 bg-slate-50/70 space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]">
+                              {claim.benefitTypeName}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {formatDateIndo(claim.createdAt)}
+                            </span>
+                          </div>
+                          <h4 className="font-bold text-slate-900 mt-1 text-sm">
+                            {claim.recipientName} ({claim.recipientRelationship || 'Diri Sendiri'})
+                          </h4>
+                          <p className="text-[10px] text-slate-500">
+                            Diajukan oleh: <strong>{claim.user?.name}</strong> (NPK {claim.user?.npk}) • WA: {claim.user?.phone}
+                          </p>
+                        </div>
+                        <div className="sm:text-right">
+                          <p className="text-[10px] text-slate-400 font-semibold uppercase">Nominal Santunan</p>
+                          <p className="text-base font-black text-rose-600 font-['Montserrat']">
+                            {formatRupiah(claim.amount)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {claim.description && (
+                        <p className="text-xs text-slate-600 bg-white p-2.5 rounded-xl border border-slate-100">
+                          <strong>Keterangan:</strong> {claim.description}
+                        </p>
+                      )}
+
+                      {claim.proofUrl && (
+                        <div className="text-[11px] text-slate-500">
+                          <strong>Bukti / Dokumen:</strong>{' '}
+                          <a
+                            href={claim.proofUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-indigo-600 underline hover:text-indigo-800"
+                          >
+                            Buka Bukti Dokumen
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Rejection input box */}
+                      {rejectionInputId === claim.id && (
+                        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 space-y-2">
+                          <p className="text-xs font-bold text-rose-900">Alasan Penolakan:</p>
+                          <input
+                            type="text"
+                            placeholder="Tuliskan alasan penolakan..."
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            className="w-full p-2 bg-white rounded-lg border border-rose-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => setRejectionInputId(null)}
+                              className="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-800"
+                            >
+                              Batal
+                            </button>
+                            <button
+                              onClick={() => handleProcessClaim(claim.id, 'REJECT', rejectionReason)}
+                              disabled={processingClaimId === claim.id}
+                              className="px-3 py-1 bg-rose-600 text-white rounded-lg text-xs font-bold"
+                            >
+                              Konfirmasi Tolak
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      {rejectionInputId !== claim.id && (
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                          <button
+                            onClick={() => {
+                              setRejectionInputId(claim.id);
+                              setRejectionReason('');
+                            }}
+                            disabled={processingClaimId === claim.id}
+                            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-all cursor-pointer"
+                          >
+                            Tolak
+                          </button>
+                          <button
+                            onClick={() => handleProcessClaim(claim.id, 'APPROVE')}
+                            disabled={processingClaimId === claim.id}
+                            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                          >
+                            {processingClaimId === claim.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            )}
+                            <span>Setujui & Cairkan Kas</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 flex justify-end">
+                <button
+                  onClick={() => setShowClaimsModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
                 >
                   Tutup
                 </button>

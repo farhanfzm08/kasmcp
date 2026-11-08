@@ -37,6 +37,7 @@ export async function GET() {
       allUnpaidObligations,
       allBenefitsExpenses,
       recentBenefitClaims,
+      pendingClaimsCount,
     ] = await Promise.all([
       prisma.incomeTransaction.aggregate({ _sum: { amount: true } }),
       prisma.expenseTransaction.aggregate({ _sum: { amount: true } }),
@@ -88,6 +89,7 @@ export async function GET() {
           notes: true,
         },
       }),
+      prisma.benefitClaim.count({ where: { status: 'PENDING' } }),
     ]);
 
     const totalIncome = incomeAggregate._sum.amount || 0;
@@ -299,6 +301,7 @@ export async function GET() {
       daysUntilDue,
       runwayMonths,
       recentBenefitClaims,
+      pendingClaimsCount,
       yearStats: {
         income: yearIncomeAgg._sum.amount || 0,
         expense: yearExpenseAgg._sum.amount || 0,

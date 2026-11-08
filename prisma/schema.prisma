@@ -24,6 +24,7 @@ model User {
   obligations         PaymentObligation[]
   paymentTransactions PaymentTransaction[]
   expensesAsMember    ExpenseTransaction[] @relation("MemberExpenses")
+  benefitClaims       BenefitClaim[]
 }
 
 model CashPeriod {
@@ -111,6 +112,31 @@ model BenefitType {
   updatedAt           DateTime             @updatedAt
 
   expenses            ExpenseTransaction[]
+  claims              BenefitClaim[]
+}
+
+model BenefitClaim {
+  id                    String        @id @default(uuid())
+  userId                String
+  benefitTypeId         String
+  benefitTypeName       String?
+  recipientType         String        @default("MEMBER") // MEMBER, FAMILY, EXTERNAL
+  recipientName         String
+  recipientRelationship String?       // Diri Sendiri, Suami/Istri, Anak, Orang Tua, etc.
+  eventDate             DateTime      @default(now())
+  amount                Int
+  description           String?
+  proofUrl              String?       // Foto / Kuitansi pendukung
+  status                String        @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedByAdminId     String?
+  approvedByAdminName   String?
+  approvedAt            DateTime?
+  rejectionReason       String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  benefitType           BenefitType   @relation(fields: [benefitTypeId], references: [id], onDelete: Restrict)
 }
 
 model ExpenseTransaction {

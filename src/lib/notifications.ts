@@ -319,4 +319,59 @@ export class NotificationService {
 
     return { totalSent: logs.length, logs };
   }
+
+  /**
+   * Send WhatsApp notification when a benefit claim is approved or rejected
+   */
+  static async sendClaimStatusNotification(params: {
+    phone: string;
+    npk: string;
+    memberName: string;
+    benefitTypeName: string;
+    amount: number;
+    isApproved: boolean;
+    rejectionReason?: string;
+    adminName: string;
+  }) {
+    const formattedAmount = formatRupiah(params.amount);
+    let message = '';
+
+    if (params.isApproved) {
+      message =
+        `*[KLAIM SANTUNAN DISETUJUI & DICAIRKAN]*\n\n` +
+        `Yth. *${params.memberName}* (NPK: ${params.npk}),\n\n` +
+        `Pengajuan santunan sosial Anda telah *DISETUJUI* oleh pengurus Kas Sosial Measuring Center:\n\n` +
+        `📌 *Jenis Santunan:* ${params.benefitTypeName}\n` +
+        `💰 *Nominal Dicairkan:* ${formattedAmount}\n` +
+        `👤 *Diproses oleh:* ${params.adminName}\n\n` +
+        `Dana santunan segera diserahkan / ditransfer kepada penerima. Semoga bantuan ini dapat bermanfaat dan meringankan.\n\n` +
+        `_Pengurus Kas Sosial Measuring Center_`;
+    } else {
+      message =
+        `*[PEMBERITAHUAN KLAIM SANTUNAN]*\n\n` +
+        `Yth. *${params.memberName}* (NPK: ${params.npk}),\n\n` +
+        `Mohon maaf, pengajuan santunan sosial (${params.benefitTypeName}) saat ini *BELUM DAPAT DISETUJUI*:\n\n` +
+        `💬 *Alasan:* ${params.rejectionReason || 'Tidak memenuhi kriteria / kelengkapan berkas'}\n\n` +
+        `Silakan hubungi Bendahara / Pengurus Kas Sosial Measuring Center untuk informasi lebih lanjut.\n\n` +
+        `_Pengurus Kas Sosial Measuring Center_`;
+    }
+
+    const { sendStatus, formattedPhone } = await this.dispatchFonnte(params.phone, message);
+
+    await prisma.notificationLog.create({
+      data: {
+        recipientNpk: params.npk,
+        recipientName: params.memberName,
+        phoneNumber: formattedPhone,
+        periodTitle: `SANTUNAN: ${params.benefitTypeName}`,
+        amount: params.amount,
+        message,
+        status: sendStatus,
+        sentByAdminId: 'SYSTEM',
+        sentByAdminName: params.adminName,
+      },
+    });
+
+    return { sendStatus, formattedPhone };
+  }
 }
