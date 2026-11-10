@@ -312,96 +312,98 @@ export default function MembersPage() {
   };
 
   return (
-    <AppLayout title="Manajemen Anggota">
-      <div className="space-y-6">
+    <AppLayout title="Anggota">
+      <div className="space-y-4 max-w-7xl mx-auto">
         {/* Top Header Card */}
-        <div className="glass-card p-6 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-              <Users className="w-6 h-6" />
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+              <Users className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900">Daftar Anggota Kas</h2>
-              <p className="text-xs text-slate-500 font-medium">
-                Total Anggota Terdaftar: <strong className="text-slate-800">{members.length} Orang</strong>
-              </p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-black text-slate-900 font-['Montserrat']">Daftar Anggota</h2>
+                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-bold">
+                  {members.length} Orang
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">Kelola akun, role, dan data kontak kas</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {/* Bulk Upload Button */}
             <button
               onClick={handleOpenBulk}
-              className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition-colors"
+              className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
-              <UploadCloud className="w-4 h-4 text-indigo-600" />
-              Bulk Upload Akun
+              <UploadCloud className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Bulk Upload</span>
             </button>
 
             {/* Single Add Member Button */}
             <button
               onClick={handleOpenAdd}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-xs shadow-md shadow-indigo-600/20 hover:opacity-95 transition-opacity flex items-center justify-center gap-2"
+              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
-              <UserPlus className="w-4 h-4" />
-              Tambah Anggota Baru
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>+ Anggota Baru</span>
             </button>
           </div>
         </div>
 
         {/* Filters and Search Bar */}
-        <div className="glass-card p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="relative w-full sm:w-72">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Cari NPK, Nama, No. HP..."
+              placeholder="Cari NPK, nama, atau no. HP..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Filter className="w-4 h-4 text-slate-400" />
-            <span className="text-xs font-semibold text-slate-600">Status:</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase">Status:</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="py-2 px-3 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              className="py-1.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
             >
-              <option value="all">Semua Status</option>
-              <option value="active">Aktif Sahaja</option>
+              <option value="all">Semua</option>
+              <option value="active">Aktif</option>
               <option value="inactive">Nonaktif</option>
             </select>
           </div>
         </div>
 
         {/* Members Table */}
-        <div className="glass-card p-6 rounded-3xl">
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           {loading ? (
-            <div className="py-12 text-center text-slate-500 font-medium text-sm">
+            <div className="py-12 text-center text-slate-400 font-medium text-xs">
               Memuat data anggota...
             </div>
           ) : members.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-sm">
-              Tidak ada data anggota ditemukan.
+            <div className="py-12 text-center text-slate-400 text-xs italic">
+              Tidak ada data anggota yang cocok.
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200/80 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    <th className="py-3 px-4">NPK</th>
-                    <th className="py-3 px-4">Nama Anggota</th>
-                    <th className="py-3 px-4">No. WhatsApp</th>
-                    <th className="py-3 px-4">Role</th>
-                    <th className="py-3 px-4">Tanggal Gabung</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4 text-right">Aksi</th>
+                  <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="py-2.5 px-3">NPK</th>
+                    <th className="py-2.5 px-3">Nama Anggota</th>
+                    <th className="py-2.5 px-3">WhatsApp</th>
+                    <th className="py-2.5 px-3">Role</th>
+                    <th className="py-2.5 px-3">Bergabung</th>
+                    <th className="py-2.5 px-3">Status</th>
+                    <th className="py-2.5 px-3 text-right">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-sm font-medium">
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                   {members.map((m) => (
                     <tr key={m.id} className="hover:bg-indigo-50/30 transition-colors">
                       <td className="py-3.5 px-4 font-mono font-bold text-indigo-700">{m.npk}</td>

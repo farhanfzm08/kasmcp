@@ -111,77 +111,82 @@ export default function IncomesPage() {
         )}
 
         {/* Top Header Card */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/70 backdrop-blur-xl p-6 rounded-3xl border border-white/50 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 font-['Montserrat']">
-              Buku Kas Pemasukan & Donasi
-            </h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Seluruh pemasukan kas (Otomatis dari Kas Anggota maupun Donasi/Sponsorship Manual).
+            <div className="flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-black text-slate-900 font-['Montserrat']">
+                Pemasukan & Donasi
+              </h2>
+              <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold text-xs">
+                {incomes.length} Transaksi
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Iuran kas otomatis, donasi sukarela, dan hibah
             </p>
           </div>
 
           <button
             onClick={() => setIsOpen(true)}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-xs shadow-md shadow-amber-500/20 hover:opacity-95 transition-opacity flex items-center justify-center gap-2"
+            className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <PlusCircle className="w-4 h-4" />
-            Catat Pemasukan Manual
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>+ Catat Pemasukan</span>
           </button>
         </div>
 
-        {/* Mutasi & Santunan Sub-Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-slate-200/80 pb-2">
+        {/* Sub-Navigation Tabs */}
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
           <a
             href="/expenses"
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
           >
             Pengeluaran & Santunan
           </a>
           <a
             href="/incomes"
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 text-white shadow-sm"
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500 text-white shadow-xs"
           >
-            Pemasukan Kas & Donasi
+            Pemasukan & Donasi
           </a>
           <a
             href="/benefit-settings"
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
           >
-            Jenis & Tarif Santunan
+            Plafon Santunan
           </a>
         </div>
 
         {/* Total Banner & Search */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="card-gradient-3 text-white p-6 rounded-3xl shadow-xl flex items-center justify-between col-span-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between col-span-1">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-amber-100">Total Pemasukan Display</p>
-              <h3 className="text-2xl font-black font-['Montserrat'] mt-1">{formatRupiah(totalFilteredIncome)}</h3>
-              <p className="text-[11px] text-amber-100 mt-1">{incomes.length} Transaksi Terdaftar</p>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Pemasukan</span>
+              <h3 className="text-xl font-black font-['Montserrat'] text-slate-900 mt-1">{formatRupiah(totalFilteredIncome)}</h3>
+              <p className="text-[11px] text-amber-600 font-semibold mt-0.5">{incomes.length} transaksi</p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
-              <ArrowUpRight className="w-6 h-6 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+              <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
 
-          <div className="glass-card p-6 rounded-3xl md:col-span-2 flex flex-col justify-center gap-4">
-            <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm sm:col-span-2 flex items-center">
+            <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
               <div className="relative w-full">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Cari judul pemasukan, catatan, admin..."
+                  placeholder="Cari judul pemasukan atau catatan..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500"
+                  className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
 
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full sm:w-64 py-2.5 px-3 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-amber-500"
+                className="w-full sm:w-48 py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
               >
                 <option value="">Semua Kategori</option>
                 {categories.map((c) => (
@@ -195,29 +200,29 @@ export default function IncomesPage() {
         </div>
 
         {/* Table */}
-        <div className="glass-card p-6 rounded-3xl">
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           {loading ? (
-            <div className="py-12 text-center text-slate-500 text-sm font-medium">
+            <div className="py-12 text-center text-slate-400 text-xs font-medium">
               Memuat data pemasukan...
             </div>
           ) : incomes.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-sm">
+            <div className="py-12 text-center text-slate-400 text-xs italic">
               Belum ada transaksi pemasukan yang sesuai.
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200/80 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    <th className="py-3 px-4">Tanggal</th>
-                    <th className="py-3 px-4">Judul Transaksi</th>
-                    <th className="py-3 px-4">Kategori</th>
-                    <th className="py-3 px-4">Tipe Influx</th>
-                    <th className="py-3 px-4">Pencatat (Admin)</th>
-                    <th className="py-3 px-4 text-right">Nominal (Rp)</th>
+                  <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="py-2.5 px-3">Tanggal</th>
+                    <th className="py-2.5 px-3">Judul Transaksi</th>
+                    <th className="py-2.5 px-3">Kategori</th>
+                    <th className="py-2.5 px-3">Tipe</th>
+                    <th className="py-2.5 px-3">Admin</th>
+                    <th className="py-2.5 px-3 text-right">Nominal</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-sm font-medium">
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                   {incomes.map((inc) => (
                     <tr key={inc.id} className="hover:bg-amber-50/30 transition-colors">
                       <td className="py-3.5 px-4 text-xs font-semibold text-slate-600">

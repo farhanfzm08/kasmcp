@@ -150,98 +150,103 @@ export default function ExpensesPage() {
         )}
 
         {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/70 backdrop-blur-xl p-6 rounded-3xl border border-white/50 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 font-['Montserrat']">
-              Pengeluaran Kas & Penyaluran Santunan
-            </h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Pencatatan dana santunan sosial duka, sakit, kecelakaan, dan biaya operasional.
+            <div className="flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-black text-slate-900 font-['Montserrat']">
+                Pengeluaran & Santunan
+              </h2>
+              <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold text-xs">
+                {expenses.length} Transaksi
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Penyaluran santunan sosial dan operasional kas
             </p>
           </div>
 
           <button
             onClick={() => setIsOpen(true)}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 text-white font-bold text-xs shadow-md shadow-rose-600/20 hover:opacity-95 transition-opacity flex items-center justify-center gap-2"
+            className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <PlusCircle className="w-4 h-4" />
-            Catat Pengeluaran / Santunan
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>+ Catat Pengeluaran</span>
           </button>
         </div>
 
-        {/* Mutasi & Santunan Sub-Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-slate-200/80 pb-2">
+        {/* Sub-Navigation Tabs */}
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
           <a
             href="/expenses"
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white shadow-sm"
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 text-white shadow-xs"
           >
             Pengeluaran & Santunan
           </a>
           <a
             href="/incomes"
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
           >
-            Pemasukan Kas & Donasi
+            Pemasukan & Donasi
           </a>
           <a
             href="/benefit-settings"
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
           >
-            Jenis & Tarif Santunan
+            Plafon Santunan
           </a>
         </div>
 
         {/* Total Banner & Search */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="card-gradient-4 text-white p-6 rounded-3xl shadow-xl flex items-center justify-between col-span-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between col-span-1">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-pink-100">Total Pengeluaran</p>
-              <h3 className="text-2xl font-black font-['Montserrat'] mt-1">{formatRupiah(totalFilteredExpense)}</h3>
-              <p className="text-[11px] text-pink-100 mt-1">{expenses.length} Transaksi Penyaluran</p>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Pengeluaran</span>
+              <h3 className="text-xl font-black font-['Montserrat'] text-slate-900 mt-1">{formatRupiah(totalFilteredExpense)}</h3>
+              <p className="text-[11px] text-rose-600 font-semibold mt-0.5">{expenses.length} transaksi</p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
-              <ArrowDownRight className="w-6 h-6 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+              <ArrowDownRight className="w-4 h-4" />
             </div>
           </div>
 
-          <div className="glass-card p-6 rounded-3xl md:col-span-2 flex items-center">
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm sm:col-span-2 flex items-center">
             <div className="relative w-full">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Cari penerima, jenis santunan, anggota, catatan..."
+                placeholder="Cari penerima, jenis santunan, anggota, atau catatan..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-rose-500"
+                className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500"
               />
             </div>
           </div>
         </div>
 
         {/* Table */}
-        <div className="glass-card p-6 rounded-3xl">
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           {loading ? (
-            <div className="py-12 text-center text-slate-500 text-sm font-medium">
+            <div className="py-12 text-center text-slate-400 text-xs font-medium">
               Memuat data pengeluaran...
             </div>
           ) : expenses.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-sm">
+            <div className="py-12 text-center text-slate-400 text-xs italic">
               Belum ada transaksi pengeluaran atau santunan sosial.
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200/80 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    <th className="py-3 px-4">Tanggal</th>
-                    <th className="py-3 px-4">Jenis Santunan / Biaya</th>
-                    <th className="py-3 px-4">Penerima Manfaat</th>
-                    <th className="py-3 px-4">Keterangan Hubungan</th>
-                    <th className="py-3 px-4">Admin Pencatat</th>
-                    <th className="py-3 px-4 text-right">Nominal (Rp)</th>
+                  <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="py-2.5 px-3">Tanggal</th>
+                    <th className="py-2.5 px-3">Jenis Santunan</th>
+                    <th className="py-2.5 px-3">Penerima Manfaat</th>
+                    <th className="py-2.5 px-3">Hubungan</th>
+                    <th className="py-2.5 px-3">Admin</th>
+                    <th className="py-2.5 px-3 text-right">Nominal</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-sm font-medium">
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                   {expenses.map((exp) => (
                     <tr key={exp.id} className="hover:bg-rose-50/30 transition-colors">
                       <td className="py-3.5 px-4 text-xs font-semibold text-slate-600">
